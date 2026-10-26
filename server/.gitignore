@@ -1,0 +1,4 @@
+note.db
+__pycache__/
+.venv/
+upload/
