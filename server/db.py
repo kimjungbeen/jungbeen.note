@@ -20,9 +20,29 @@ def close_db(e=None):
         db.close()
 
 
-def init_db(path):
+def init_db(path, default_colors):
     with sqlite3.connect(path) as conn, open(SCHEMA_PATH, encoding="utf-8") as f:
+        had_notes = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'notes'").fetchone()
         conn.executescript(f.read())
+        # notes 테이블이 처음 생길 때, 이미 있던 사용자에게도 기본 노트를 꽂아 준다.
+        if not had_notes:
+            for (user_id,) in conn.execute("SELECT user_id FROM users").fetchall():
+                _insert_default_notes(conn, user_id, default_colors)
+
+
+# 기존 메인 화면에 있던 6권의 노트를 사용자의 기본 노트로 만든다.
+def _insert_default_notes(conn, user_id, colors):
+    conn.executemany(
+        "INSERT INTO notes (user_id, title, color) VALUES (?, '', ?)",
+        [(user_id, c) for c in colors],
+    )
+
+
+def add_default_notes(user_id, colors):
+    db = get_db()
+    _insert_default_notes(db, user_id, colors)
+    db.commit()
 
 
 # 사용자 한명의 정보를 조회한다. (UserMapper.getUser)
@@ -90,15 +110,6 @@ def get_note(note_id, user_id):
     return dict(row) if row else None
 
 
-def add_note(user_id, title, color):
-    db = get_db()
-    cur = db.execute(
-        "INSERT INTO notes (user_id, title, color) VALUES (?, ?, ?)", (user_id, title, color)
-    )
-    db.commit()
-    return cur.lastrowid
-
-
 def update_note(note_id, user_id, **fields):
     cols = ", ".join(f"{k} = ?" for k in fields)
     db = get_db()
@@ -108,9 +119,3 @@ def update_note(note_id, user_id, **fields):
     )
     db.commit()
     return cur.rowcount
-
-
-def delete_note(note_id, user_id):
-    db = get_db()
-    db.execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
-    db.commit()

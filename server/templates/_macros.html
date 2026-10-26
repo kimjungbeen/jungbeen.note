@@ -57,11 +57,3 @@
 	</div>
 </div>
 {%- endmacro %}
-
-{% macro color_picker(colors, selected) -%}
-<div class="colors">
-	{% for c in colors %}
-	<label><input type="radio" name="color" value="{{ c }}"{% if c == selected %} checked{% endif %}><span style="background:{{ c }}"></span></label>
-	{% endfor %}
-</div>
-{%- endmacro %}

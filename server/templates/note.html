@@ -1,6 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import field, color_picker %}
-{% block title %}{{ note.title }} · 노트공유{% endblock %}
+{% block title %}{{ note.title or "노트" }} · 노트공유{% endblock %}
 {% block head %}
 <style>
 	.note-page { max-width:820px; margin:28px auto 60px; padding:0 16px; }
@@ -31,7 +30,7 @@
 
 <main class="note-page">
 	<div class="notebook">
-		<input class="title-input" id="title" value="{{ note.title }}" maxlength="60" aria-label="노트 이름">
+		<input class="title-input" id="title" value="{{ note.title }}" maxlength="60" placeholder="노트 이름" aria-label="노트 이름">
 		<div class="toolbar">
 			<button type="button" data-cmd="bold" title="굵게"><b>B</b></button>
 			<button type="button" data-cmd="italic" title="기울임"><i>I</i></button>
@@ -49,33 +48,7 @@
 		</div>
 		<div class="editor" id="editor" contenteditable="true">{{ note.content | safe }}</div>
 	</div>
-	<div class="links" style="margin-top:16px">
-		<a href="#" onclick="document.getElementById('cover').showModal(); return false">표지 색 바꾸기</a>
-		<a href="#" onclick="document.getElementById('delNote').showModal(); return false">노트 삭제</a>
-	</div>
 </main>
-
-<dialog id="cover">
-	<form method="post" action="{{ url_for('update_note_cover', note_id=note.id) }}">
-		<h3>표지 색</h3>
-		{{ color_picker(colors, note.color) }}
-		<div class="row">
-			<button class="btn ghost" type="button" onclick="this.closest('dialog').close()">취소</button>
-			<button class="btn" type="submit">바꾸기</button>
-		</div>
-	</form>
-</dialog>
-
-<dialog id="delNote">
-	<form method="post" action="{{ url_for('delete_note', note_id=note.id) }}">
-		<h3>노트를 삭제할까요?</h3>
-		<p>“{{ note.title }}” 노트와 내용이 모두 지워지고 복구할 수 없어요.</p>
-		<div class="row">
-			<button class="btn ghost" type="button" onclick="this.closest('dialog').close()">취소</button>
-			<button class="btn danger" type="submit">삭제</button>
-		</div>
-	</form>
-</dialog>
 
 <script>
 (function() {

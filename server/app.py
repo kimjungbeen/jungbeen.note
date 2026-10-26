@@ -1,4 +1,4 @@
-"""jungbeen.note 서버 (Spring UserController를 Flask로 옮기고 노트 기능을 붙인 버전)."""
+"""jungbeen.note 서버 (Spring UserController를 Flask로 옮기고 노트 기능을 연결한 버전)."""
 import functools
 import os
 
@@ -17,7 +17,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 app.config["DATABASE"] = os.environ.get("DATABASE", os.path.join(BASE_DIR, "note.db"))
 app.teardown_appcontext(db.close_db)
-db.init_db(app.config["DATABASE"])
+db.init_db(app.config["DATABASE"], NOTE_COLORS)
 
 
 @app.before_request
@@ -57,7 +57,7 @@ def login():
     return render_template("user/login.html", user_id=user_id)
 
 
-@app.post("/logout")
+@app.route("/logout", methods=["GET", "POST"])
 def logout():
     session.clear()
     return redirect(url_for("login"))
@@ -99,6 +99,7 @@ def add_user():
                              f.get("userName", "").strip(), f.get("userEmail", "").strip()):
             flash("이미 사용 중인 아이디예요.")
         else:
+            db.add_default_notes(user_id, NOTE_COLORS)
             log_in(user_id)
             return redirect(url_for("main"))
     return render_template("user/addUser.html", form=f)
@@ -110,22 +111,23 @@ def edit_user():
     f = request.form
     if not check_password_hash(g.user["user_pw"], f.get("userPw", "")):
         flash("현재 비밀번호가 맞지 않아 수정하지 못했어요.")
-    elif f.get("newPw") and len(f["newPw"]) < 4:
-        flash("새 비밀번호는 4자 이상이어야 해요.")
     else:
-        new_pw = generate_password_hash(f["newPw"]) if f.get("newPw") else None
         db.update_user(g.user["user_id"], f.get("userName", "").strip(),
-                       f.get("userEmail", "").strip(), new_pw)
-        flash("회원정보를 수정했어요.", "ok")
+                       f.get("userEmail", "").strip())
+        flash("회원정보를 수정했어요.")
     return redirect(url_for("main"))
+
+
+# 회원정보 수정 창의 '비밀번호 확인' 버튼
+@app.post("/passCheck")
+@login_required
+def pass_check():
+    return jsonify(check_password_hash(g.user["user_pw"], request.form.get("userPw", "")))
 
 
 @app.post("/user/delete")
 @login_required
 def delete_user():
-    if not check_password_hash(g.user["user_pw"], request.form.get("userPw", "")):
-        flash("현재 비밀번호가 맞지 않아 탈퇴하지 못했어요.")
-        return redirect(url_for("main"))
     db.delete_user(g.user["user_id"])
     session.clear()
     return redirect(url_for("login"))
@@ -134,20 +136,7 @@ def delete_user():
 @app.route("/main")
 @login_required
 def main():
-    return render_template("main.html", user=g.user, notes=db.list_notes(g.user["user_id"]),
-                           colors=NOTE_COLORS)
-
-
-def pick_color(value):
-    return value if value in NOTE_COLORS else NOTE_COLORS[0]
-
-
-@app.post("/notes")
-@login_required
-def create_note():
-    title = request.form.get("title", "").strip()[:60] or "새 노트"
-    note_id = db.add_note(g.user["user_id"], title, pick_color(request.form.get("color")))
-    return redirect(url_for("note", note_id=note_id))
+    return render_template("main.html", user=g.user, notes=db.list_notes(g.user["user_id"]))
 
 
 def own_note(note_id):
@@ -160,7 +149,7 @@ def own_note(note_id):
 @app.get("/notes/<int:note_id>")
 @login_required
 def note(note_id):
-    return render_template("note.html", note=own_note(note_id), colors=NOTE_COLORS)
+    return render_template("note.html", note=own_note(note_id))
 
 
 # 편집 화면의 자동 저장
@@ -169,25 +158,9 @@ def note(note_id):
 def save_note(note_id):
     own_note(note_id)
     data = request.get_json(silent=True) or {}
-    title = str(data.get("title", "")).strip()[:60] or "새 노트"
+    title = str(data.get("title", "")).strip()[:60]
     db.update_note(note_id, g.user["user_id"], title=title, content=str(data.get("content", "")))
     return jsonify(ok=True)
-
-
-@app.post("/notes/<int:note_id>/cover")
-@login_required
-def update_note_cover(note_id):
-    own_note(note_id)
-    db.update_note(note_id, g.user["user_id"], color=pick_color(request.form.get("color")))
-    return redirect(url_for("note", note_id=note_id))
-
-
-@app.post("/notes/<int:note_id>/delete")
-@login_required
-def delete_note(note_id):
-    own_note(note_id)
-    db.delete_note(note_id, g.user["user_id"])
-    return redirect(url_for("main"))
 
 
 if __name__ == "__main__":
