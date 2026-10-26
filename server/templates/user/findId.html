@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, flashes %}
+{% block title %}아이디 찾기 · 노트공유{% endblock %}
+{% block body %}
+<main class="auth-wrap">
+	<form class="notebook" method="post" action="{{ url_for('find_id') }}" style="--cover:#F5F6CE">
+		<h1>아이디 찾기</h1>
+		<p class="sub">가입할 때 쓴 이메일을 입력하세요.</p>
+		{{ flashes() }}
+		{% if found is not none %}
+			{% if found %}
+			<p class="flash ok">이 이메일로 가입한 아이디: {{ found | join(", ") }}</p>
+			{% else %}
+			<p class="flash">이 이메일로 가입한 아이디가 없어요.</p>
+			{% endif %}
+		{% endif %}
+		{{ field("userEmail", "이메일", type="email", value=email, autocomplete="email", autofocus=True) }}
+		<div class="form-actions">
+			<button class="btn block" type="submit">찾기</button>
+		</div>
+		<div class="links">
+			<a href="{{ url_for('login') }}">로그인으로 돌아가기</a>
+			<a href="{{ url_for('add_user') }}">계정 만들기</a>
+		</div>
+	</form>
+</main>
+{% endblock %}

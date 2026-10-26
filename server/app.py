@@ -1,12 +1,17 @@
-"""jungbeen.note 서버 (Spring UserController를 Flask로 옮긴 버전)."""
+"""jungbeen.note 서버 (Spring UserController를 Flask로 옮기고 노트 기능을 붙인 버전)."""
+import functools
 import os
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request,
+                   session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 메인 선반에 있던 파스텔 노트 색
+NOTE_COLORS = ["#F5A9A9", "#CEECF5", "#E6E6E6", "#F6CEE3", "#F5F6CE", "#D8F6CE"]
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
@@ -15,63 +20,174 @@ app.teardown_appcontext(db.close_db)
 db.init_db(app.config["DATABASE"])
 
 
-@app.get("/")
+@app.before_request
+def load_user():
+    user_id = session.get("loginUser")
+    g.user = db.get_user(user_id) if user_id else None
+    if user_id and g.user is None:
+        session.clear()
+
+
+def login_required(view):
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if g.user is None:
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def log_in(user_id):
+    session.clear()
+    session["loginUser"] = user_id
+
+
+# 로그인: 아이디와 비밀번호를 한 화면에서 받는다.
+@app.route("/", methods=["GET", "POST"])
 def login():
-    return render_template("user/logIn.html")
+    if g.user is not None:
+        return redirect(url_for("main"))
+    user_id = request.form.get("userId", "").strip()
+    if request.method == "POST":
+        user = db.get_user(user_id) if user_id else None
+        if user and check_password_hash(user["user_pw"], request.form.get("userPw", "")):
+            log_in(user_id)
+            return redirect(url_for("main"))
+        flash("아이디 또는 비밀번호가 맞지 않아요.")
+    return render_template("user/login.html", user_id=user_id)
 
 
-# 1단계: 아이디 확인. 맞으면 세션에 사용자를 기억해 둔다.
-@app.post("/")
+@app.post("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+def mask_id(user_id):
+    shown = 2 if len(user_id) > 4 else 1
+    return user_id[:shown] + "*" * max(len(user_id) - shown, 3)
+
+
+@app.route("/findId", methods=["GET", "POST"])
 def find_id():
-    user_id = request.form.get("userId", "")
-    user = db.get_user(user_id) if user_id else None
-    if user is None:
-        return jsonify(False)
-    session["corUser"] = user["user_id"]
-    return jsonify(True)
+    email = request.form.get("userEmail", "").strip()
+    found = None
+    if request.method == "POST" and email:
+        # 남의 아이디를 통째로 알려주지 않도록 앞 한두 글자만 보여준다.
+        found = [mask_id(i) for i in db.find_user_ids(email)]
+    return render_template("user/findId.html", email=email, found=found)
 
 
-# 2단계: 세션의 사용자와 비밀번호 비교
-@app.post("/passCheck")
-def pass_check():
-    user_pw = request.form.get("userPw", "")
-    user_id = session.get("corUser")
-    if not user_pw or not user_id:
-        return jsonify(False)
-    user = db.get_user(user_id)
-    ok = user is not None and check_password_hash(user["user_pw"], user_pw)
-    if ok:
-        session["loginUser"] = user_id
-    return jsonify(ok)
-
-
+# 예전 주소 호환
 @app.get("/findPw")
 def find_pw():
-    return render_template("user/findPw.html")
+    return redirect(url_for("find_id"))
 
 
-@app.get("/addUser")
-def add_user_form():
-    return render_template("user/addUser.html")
-
-
-@app.post("/addUser")
+@app.route("/addUser", methods=["GET", "POST"])
 def add_user():
     f = request.form
-    user_id, user_pw = f.get("userId", ""), f.get("userPw", "")
-    if not user_id or not user_pw:
-        return jsonify(False)
-    added = db.add_user(
-        user_id, generate_password_hash(user_pw), f.get("userName"), f.get("userEmail")
-    )
-    if added:
-        session["corUser"] = session["loginUser"] = user_id
-    return jsonify(added > 0)
+    if request.method == "POST":
+        user_id, user_pw = f.get("userId", "").strip(), f.get("userPw", "")
+        if not user_id or not user_pw:
+            flash("아이디와 비밀번호를 입력하세요.")
+        elif len(user_pw) < 4:
+            flash("비밀번호는 4자 이상이어야 해요.")
+        elif user_pw != f.get("checkPw", ""):
+            flash("비밀번호 확인이 일치하지 않아요.")
+        elif not db.add_user(user_id, generate_password_hash(user_pw),
+                             f.get("userName", "").strip(), f.get("userEmail", "").strip()):
+            flash("이미 사용 중인 아이디예요.")
+        else:
+            log_in(user_id)
+            return redirect(url_for("main"))
+    return render_template("user/addUser.html", form=f)
+
+
+@app.post("/user/edit")
+@login_required
+def edit_user():
+    f = request.form
+    if not check_password_hash(g.user["user_pw"], f.get("userPw", "")):
+        flash("현재 비밀번호가 맞지 않아 수정하지 못했어요.")
+    elif f.get("newPw") and len(f["newPw"]) < 4:
+        flash("새 비밀번호는 4자 이상이어야 해요.")
+    else:
+        new_pw = generate_password_hash(f["newPw"]) if f.get("newPw") else None
+        db.update_user(g.user["user_id"], f.get("userName", "").strip(),
+                       f.get("userEmail", "").strip(), new_pw)
+        flash("회원정보를 수정했어요.", "ok")
+    return redirect(url_for("main"))
+
+
+@app.post("/user/delete")
+@login_required
+def delete_user():
+    if not check_password_hash(g.user["user_pw"], request.form.get("userPw", "")):
+        flash("현재 비밀번호가 맞지 않아 탈퇴하지 못했어요.")
+        return redirect(url_for("main"))
+    db.delete_user(g.user["user_id"])
+    session.clear()
+    return redirect(url_for("login"))
 
 
 @app.route("/main")
+@login_required
 def main():
-    return render_template("main.html")
+    return render_template("main.html", user=g.user, notes=db.list_notes(g.user["user_id"]),
+                           colors=NOTE_COLORS)
+
+
+def pick_color(value):
+    return value if value in NOTE_COLORS else NOTE_COLORS[0]
+
+
+@app.post("/notes")
+@login_required
+def create_note():
+    title = request.form.get("title", "").strip()[:60] or "새 노트"
+    note_id = db.add_note(g.user["user_id"], title, pick_color(request.form.get("color")))
+    return redirect(url_for("note", note_id=note_id))
+
+
+def own_note(note_id):
+    note = db.get_note(note_id, g.user["user_id"])
+    if note is None:
+        abort(404)
+    return note
+
+
+@app.get("/notes/<int:note_id>")
+@login_required
+def note(note_id):
+    return render_template("note.html", note=own_note(note_id), colors=NOTE_COLORS)
+
+
+# 편집 화면의 자동 저장
+@app.post("/notes/<int:note_id>/save")
+@login_required
+def save_note(note_id):
+    own_note(note_id)
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title", "")).strip()[:60] or "새 노트"
+    db.update_note(note_id, g.user["user_id"], title=title, content=str(data.get("content", "")))
+    return jsonify(ok=True)
+
+
+@app.post("/notes/<int:note_id>/cover")
+@login_required
+def update_note_cover(note_id):
+    own_note(note_id)
+    db.update_note(note_id, g.user["user_id"], color=pick_color(request.form.get("color")))
+    return redirect(url_for("note", note_id=note_id))
+
+
+@app.post("/notes/<int:note_id>/delete")
+@login_required
+def delete_note(note_id):
+    own_note(note_id)
+    db.delete_note(note_id, g.user["user_id"])
+    return redirect(url_for("main"))
 
 
 if __name__ == "__main__":

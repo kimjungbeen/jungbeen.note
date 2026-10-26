@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, color_picker %}
+{% block title %}{{ note.title }} · 노트공유{% endblock %}
+{% block head %}
+<style>
+	.note-page { max-width:820px; margin:28px auto 60px; padding:0 16px; }
+	.note-page .notebook { max-width:none; padding:28px 32px 32px 72px; --cover:{{ note.color }}; }
+	.title-input { width:100%; border:0; background:none; font:inherit; font-size:26px; font-weight:700; color:var(--ink); padding:4px 0; }
+	.title-input:focus { outline:none; box-shadow:0 2px 0 var(--accent-strong); }
+	.toolbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:14px 0 10px; padding-bottom:10px; border-bottom:1px solid var(--paper-line); }
+	.toolbar button { border:0; background:#fff; border-radius:4px; min-width:34px; height:32px; font:inherit; cursor:pointer; box-shadow:0 0 0 1px var(--shadow) inset; }
+	.toolbar button:hover { background:#fff7ef; }
+	.toolbar .sep { width:1px; height:20px; background:var(--paper-line); margin:0 4px; }
+	.toolbar .swatch { min-width:24px; width:24px; height:24px; border-radius:50%; box-shadow:none; }
+	.editor {
+		min-height:55vh; outline:none; font-size:16px; line-height:32px;
+		background-image:repeating-linear-gradient(transparent, transparent 31px, var(--paper-line) 31px, var(--paper-line) 32px);
+	}
+	.editor:empty::before { content:"여기에 내용을 적어 보세요."; color:var(--ink-soft); }
+	.status { font-size:13px; color:var(--ink-soft); min-width:90px; text-align:right; }
+</style>
+{% endblock %}
+{% block body %}
+<header class="topbar">
+	<a class="brand" href="{{ url_for('main') }}"><span class="dot"></span>노트공유</a>
+	<div class="actions">
+		<span class="status" id="status">저장됨</span>
+		<a class="btn line" href="{{ url_for('main') }}">선반으로</a>
+	</div>
+</header>
+
+<main class="note-page">
+	<div class="notebook">
+		<input class="title-input" id="title" value="{{ note.title }}" maxlength="60" aria-label="노트 이름">
+		<div class="toolbar">
+			<button type="button" data-cmd="bold" title="굵게"><b>B</b></button>
+			<button type="button" data-cmd="italic" title="기울임"><i>I</i></button>
+			<button type="button" data-cmd="underline" title="밑줄"><u>U</u></button>
+			<button type="button" data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+			<span class="sep"></span>
+			<button type="button" data-cmd="insertUnorderedList" title="목록">•</button>
+			<button type="button" data-cmd="insertOrderedList" title="번호 목록">1.</button>
+			<span class="sep"></span>
+			{% for c in ["#3a3a3a", "#E07B7B", "#4A90C2", "#5E9E4A"] %}
+			<button type="button" class="swatch" data-cmd="foreColor" data-arg="{{ c }}" style="background:{{ c }}" title="글자색"></button>
+			{% endfor %}
+			<button type="button" data-cmd="hiliteColor" data-arg="#F5F6CE" title="형광펜" style="background:#F5F6CE">✎</button>
+			<button type="button" data-cmd="removeFormat" title="서식 지우기">⌫</button>
+		</div>
+		<div class="editor" id="editor" contenteditable="true">{{ note.content | safe }}</div>
+	</div>
+	<div class="links" style="margin-top:16px">
+		<a href="#" onclick="document.getElementById('cover').showModal(); return false">표지 색 바꾸기</a>
+		<a href="#" onclick="document.getElementById('delNote').showModal(); return false">노트 삭제</a>
+	</div>
+</main>
+
+<dialog id="cover">
+	<form method="post" action="{{ url_for('update_note_cover', note_id=note.id) }}">
+		<h3>표지 색</h3>
+		{{ color_picker(colors, note.color) }}
+		<div class="row">
+			<button class="btn ghost" type="button" onclick="this.closest('dialog').close()">취소</button>
+			<button class="btn" type="submit">바꾸기</button>
+		</div>
+	</form>
+</dialog>
+
+<dialog id="delNote">
+	<form method="post" action="{{ url_for('delete_note', note_id=note.id) }}">
+		<h3>노트를 삭제할까요?</h3>
+		<p>“{{ note.title }}” 노트와 내용이 모두 지워지고 복구할 수 없어요.</p>
+		<div class="row">
+			<button class="btn ghost" type="button" onclick="this.closest('dialog').close()">취소</button>
+			<button class="btn danger" type="submit">삭제</button>
+		</div>
+	</form>
+</dialog>
+
+<script>
+(function() {
+	var editor = document.getElementById("editor");
+	var title = document.getElementById("title");
+	var status = document.getElementById("status");
+	var timer = null, dirty = false;
+
+	document.querySelectorAll(".toolbar button").forEach(function(btn) {
+		btn.addEventListener("mousedown", function(e) { e.preventDefault(); });
+		btn.addEventListener("click", function() {
+			document.execCommand(btn.dataset.cmd, false, btn.dataset.arg || null);
+			changed();
+		});
+	});
+
+	function changed() {
+		dirty = true;
+		status.textContent = "저장 중…";
+		clearTimeout(timer);
+		timer = setTimeout(save, 800);
+	}
+
+	function save() {
+		if(!dirty) return Promise.resolve();
+		dirty = false;
+		return fetch("{{ url_for('save_note', note_id=note.id) }}", {
+			method: "POST",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify({title: title.value, content: editor.innerHTML})
+		}).then(function(r) {
+			if(!r.ok) throw new Error(r.status);
+			status.textContent = "저장됨";
+		}).catch(function() {
+			dirty = true;
+			status.textContent = "저장 실패";
+		});
+	}
+
+	editor.addEventListener("input", changed);
+	title.addEventListener("input", changed);
+	window.addEventListener("beforeunload", function(e) {
+		if(dirty) { save(); e.preventDefault(); e.returnValue = ""; }
+	});
+})();
+</script>
+{% endblock %}

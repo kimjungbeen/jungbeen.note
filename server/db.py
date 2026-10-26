@@ -10,6 +10,7 @@ def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(current_app.config["DATABASE"])
         g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
 
 
@@ -33,6 +34,14 @@ def get_user(user_id):
     return dict(row) if row else None
 
 
+# 이메일로 가입한 아이디들을 찾는다.
+def find_user_ids(email):
+    rows = get_db().execute(
+        "SELECT user_id FROM users WHERE lower(user_email) = lower(?) ORDER BY user_id", (email,)
+    ).fetchall()
+    return [r["user_id"] for r in rows]
+
+
 # 사용자 정보를 추가한다. return: 추가한 사용자 정보 수 (UserMapper.addUser)
 def add_user(user_id, user_pw, user_name, user_email):
     db = get_db()
@@ -45,3 +54,63 @@ def add_user(user_id, user_pw, user_name, user_email):
         return cur.rowcount
     except sqlite3.IntegrityError:
         return 0
+
+
+def update_user(user_id, user_name, user_email, user_pw=None):
+    db = get_db()
+    if user_pw:
+        db.execute(
+            "UPDATE users SET user_name = ?, user_email = ?, user_pw = ? WHERE user_id = ?",
+            (user_name, user_email, user_pw, user_id),
+        )
+    else:
+        db.execute(
+            "UPDATE users SET user_name = ?, user_email = ? WHERE user_id = ?",
+            (user_name, user_email, user_id),
+        )
+    db.commit()
+
+
+def delete_user(user_id):
+    db = get_db()
+    db.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+    db.commit()
+
+
+def list_notes(user_id):
+    return get_db().execute(
+        "SELECT id, title, color FROM notes WHERE user_id = ? ORDER BY id", (user_id,)
+    ).fetchall()
+
+
+def get_note(note_id, user_id):
+    row = get_db().execute(
+        "SELECT * FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def add_note(user_id, title, color):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO notes (user_id, title, color) VALUES (?, ?, ?)", (user_id, title, color)
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def update_note(note_id, user_id, **fields):
+    cols = ", ".join(f"{k} = ?" for k in fields)
+    db = get_db()
+    cur = db.execute(
+        f"UPDATE notes SET {cols}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+        (*fields.values(), note_id, user_id),
+    )
+    db.commit()
+    return cur.rowcount
+
+
+def delete_note(note_id, user_id):
+    db = get_db()
+    db.execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
+    db.commit()

@@ -1,0 +1,124 @@
+/* 노트공유 공통 스타일: 메인 선반의 파스텔 노트와 살색 종이 느낌에 맞춘다. */
+:root {
+	--ink:#3a3a3a;
+	--ink-soft:#8a8a8a;
+	--paper:#F8ECE0;
+	--paper-line:#EAD9C6;
+	--shadow:#D8D8D8;
+	--spine:gray;
+	--accent:#F5A9A9;
+	--accent-strong:#E07B7B;
+	--error:#C0504D;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; min-height:100%; }
+body {
+	font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+	color:var(--ink);
+	background:#fff;
+	-webkit-font-smoothing:antialiased;
+}
+a { color:inherit; }
+
+/* 상단 바 */
+.topbar {
+	display:flex; align-items:center; justify-content:space-between;
+	padding:14px 24px;
+	box-shadow:0 0 5px 1px var(--shadow);
+	background:#fff;
+	position:sticky; top:0; z-index:10;
+}
+.brand { font-size:20px; font-weight:700; text-decoration:none; letter-spacing:-0.5px; }
+.brand .dot { display:inline-block; width:10px; height:16px; margin-right:8px; border-radius:0 2px 2px 0; background:var(--accent); box-shadow:3px 0 0 var(--spine) inset; vertical-align:-2px; }
+.topbar .actions { display:flex; align-items:center; gap:12px; }
+.avatar { width:40px; height:40px; border-radius:50%; cursor:pointer; border:0; padding:0; background:none; }
+.avatar img { width:100%; height:100%; border-radius:50%; }
+
+/* 버튼 */
+.btn {
+	display:inline-block; border:0; border-radius:6px;
+	padding:10px 18px; font:inherit; font-size:15px; font-weight:600;
+	cursor:pointer; text-decoration:none; text-align:center;
+	background:var(--accent-strong); color:#fff;
+	transition:background .15s;
+}
+.btn:hover { background:#C96565; }
+.btn.ghost { background:none; color:var(--ink-soft); padding:10px 8px; }
+.btn.ghost:hover { color:var(--ink); }
+.btn.line { background:#fff; color:var(--ink); box-shadow:0 0 0 1px var(--shadow) inset; }
+.btn.line:hover { background:var(--paper); }
+.btn.danger { background:var(--error); }
+.btn.block { width:100%; }
+
+/* 노트 모양 카드: 왼쪽 책등 + 살색 종이 */
+.notebook {
+	position:relative;
+	width:100%; max-width:420px;
+	margin:0 auto;
+	padding:40px 40px 32px 64px;
+	background:var(--paper);
+	border-radius:0 10px 10px 0;
+	box-shadow:0 0 10px 1px var(--shadow);
+}
+.notebook::before {
+	content:""; position:absolute; left:0; top:0; bottom:0; width:36px;
+	background:var(--cover, var(--accent));
+	border-radius:0;
+}
+.notebook::after {
+	content:""; position:absolute; left:24px; top:0; bottom:0; width:6px;
+	background:var(--spine); opacity:.8;
+}
+.notebook h1 { margin:0 0 4px; font-size:28px; letter-spacing:-0.5px; }
+.notebook .sub { margin:0 0 28px; color:var(--ink-soft); }
+
+.auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+
+/* 떠오르는 라벨 입력창 (기존 로그인 화면 스타일) */
+.inp { position:relative; display:block; margin:0 0 18px; }
+.inp input {
+	-webkit-appearance:none; width:100%; border:0;
+	font:inherit; font-size:16px; font-weight:500;
+	padding:18px 0 8px; height:48px;
+	border-bottom:2px solid #d8c8b6; background:none; border-radius:0;
+	color:var(--ink); transition:all .15s;
+}
+.inp .label {
+	position:absolute; top:16px; left:0; font-size:16px; color:var(--ink-soft);
+	transform-origin:0 0; transition:all .2s; pointer-events:none;
+}
+.inp .border {
+	position:absolute; bottom:0; left:0; height:2px; width:100%;
+	background:var(--accent-strong); transform:scaleX(0); transform-origin:0 0; transition:all .15s;
+}
+.inp input:not(:placeholder-shown) + .label,
+.inp input:focus + .label { transform:translateY(-16px) scale(.75); }
+.inp input:focus { outline:none; }
+.inp input:focus + .label { color:var(--accent-strong); }
+.inp input:focus + .label + .border { transform:scaleX(1); }
+
+.form-actions { margin-top:26px; display:flex; flex-direction:column; gap:10px; }
+.links { margin-top:18px; display:flex; justify-content:space-between; font-size:14px; }
+.links a { color:var(--ink-soft); text-decoration:none; }
+.links a:hover { color:var(--ink); text-decoration:underline; }
+
+.flash { margin:0 0 18px; padding:10px 12px; border-radius:6px; font-size:14px; background:#fbe3e1; color:var(--error); }
+.flash.ok { background:#e5f4df; color:#3f7a2e; }
+
+/* 다이얼로그 */
+dialog {
+	border:0; border-radius:10px; padding:28px; width:min(420px, calc(100vw - 32px));
+	box-shadow:0 0 20px 2px rgba(0,0,0,.15); color:var(--ink);
+}
+dialog::backdrop { background:rgba(60,50,40,.25); }
+dialog h3 { margin:0 0 18px; }
+dialog .row { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; flex-wrap:wrap; }
+dialog dl { margin:0; display:grid; grid-template-columns:72px 1fr; row-gap:8px; }
+dialog dt { color:var(--ink-soft); }
+dialog dd { margin:0; word-break:break-all; }
+
+.colors { display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 4px; }
+.colors label { cursor:pointer; }
+.colors input { display:none; }
+.colors span { display:block; width:30px; height:42px; border-radius:0 4px 4px 0; box-shadow:5px 0 0 rgba(128,128,128,.8) inset; outline-offset:3px; }
+.colors input:checked + span { outline:2px solid var(--ink); }
