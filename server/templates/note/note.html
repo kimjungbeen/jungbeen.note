@@ -1,6 +1,3 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-    pageEncoding="UTF-8"%>
-<%@ page import="jungbeen.note.page.domain.Page, java.util.List" %>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="/note/js/utility.js"></script>
 <script>
@@ -105,7 +102,7 @@ window.onload = function() {
 			iframe.style.width = "2.5px";
 			iframe.style.height = pageBg.offsetHeight + "px";
 			
-			form.children[0].setAttribute("value", <%= request.getAttribute("noteId") %>);
+			form.children[0].setAttribute("value", {{ noteId }});
 			form.children[1].setAttribute("value", meta.children[0].innerText);
 			form.children[2].click();
 		}
@@ -131,14 +128,14 @@ window.onload = function() {
 	back.onclick = function() {
 		for(var i = 0; i < pageBgs.length; i++)
 			pageBgs[i].style.transitionDuration = "0s";
-		window.parent.postMessage(<%= request.getAttribute("noteIdx") %>, "*");
+		window.parent.postMessage({{ noteIdx }}, "*");
 	}
 	
 	function sync() {
 		ajax({
 			url:"/note/page/downContent",
 			method:"post",
-			param:[{name:"noteId", value:"<%= ((List<Page>)request.getAttribute("pages")).get(0).getNoteId() %>"}],
+			param:[{name:"noteId", value:"{{ pages[0].noteId }}"}],
 			success:function(response) {
 				for(var i = 0; i < response.length; i++) {
 					var preview = pageBgs[i].previousElementSibling;
@@ -302,25 +299,18 @@ window.onload = function() {
 		<input type="submit">
 	</form>
 	
-	<%= ((List<Page>)request.getAttribute("pages")).get(0).getNoteId() %>
 	<iframe name="pageFrame" allowtransparency="true" frameborder="0" width="30px" height="300px"></iframe>
 	
     <div class="note">
-<%
-	List<Page> pages = (List<Page>)request.getAttribute("pages");
-
-	for(Page p : pages) {   
-%>
-    	<div class="preview"><%= p.getContent1() == null ? "" : p.getContent1() %></div>
+{%- for p in pages %}
+    	<div class="preview">{{ (p.content1 or "") | safe }}</div>
         <div class="page-bg">
         	<div class="page"></div>
         	<div class="meta">
-        		<div class="idx"><%= p.getIdx() %></div>
+        		<div class="idx">{{ p.idx }}</div>
         	</div>
         </div>
-<%
-	}
-%>
+{%- endfor %}
     </div>
 </body>
 </html>

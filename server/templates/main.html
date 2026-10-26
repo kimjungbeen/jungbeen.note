@@ -1,6 +1,3 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="jungbeen.note.user.domain.User, jungbeen.note.note.domain.Note, jungbeen.note.usernote.domain.UserNote" %>
-<%@ page import="java.util.List" %>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
@@ -237,7 +234,7 @@ window.onload = function() {
 								
 								if(response[j].isOwner == 1) {
 									friend.getElementsByClassName("id")[0].style.color = "white";
-									if(response[j].userId == "<%= request.getAttribute("userId") %>")
+									if(response[j].userId == "{{ userId }}")
 										isOwner = true;
 									
 									ownerId = response[j].userId;
@@ -310,7 +307,7 @@ window.onload = function() {
 											url:"/note/userNote/edit",
 											method:"post",
 											param:[
-											       {name:"userId", value:"<%= request.getAttribute("userId") %>"},
+											       {name:"userId", value:"{{ userId }}"},
 											       {name:"noteId", value:noteId},
 											       {name:"isOwner", value:0}
 											],
@@ -418,7 +415,7 @@ window.onload = function() {
 							ajax({url:"/note/delete", 
 								method:"post", 
 								param:[
-								       		{name:"userId", value:"<%= request.getAttribute("userId") %>"},
+								       		{name:"userId", value:"{{ userId }}"},
 									   		{name:"noteId", value:noteId},
 									   		{name:"noteIdx", value:noteIdx}
 								       ], 
@@ -444,7 +441,7 @@ window.onload = function() {
 								ajax({url:"/note/delete", 
 									method:"post", 
 									param:[
-									       		{name:"userId", value:"<%= request.getAttribute("userId") %>"},
+									       		{name:"userId", value:"{{ userId }}"},
 										   		{name:"noteId", value:noteId},
 										   		{name:"noteIdx", value:noteIdx}
 									       ], 
@@ -643,7 +640,7 @@ window.onload = function() {
 													       {name:"originIdx", value:oi}, 
 													       {name:"changeIdx", value:ci},
 													       {name:"noteId", value:noteId},
-													       {name:"userId", value:"<%= request.getAttribute("userId") %>"},
+													       {name:"userId", value:"{{ userId }}"},
 													       {name:"isLast", value:isLast}
 												       ], 
 												success:function() {
@@ -782,7 +779,7 @@ window.onload = function() {
 			method:"post", 
 			param:[
 				       {name:"idx", value:notes.length - 1-1}, 
-				       {name:"userId", value:"<%= request.getAttribute("userId") %>"}
+				       {name:"userId", value:"{{ userId }}"}
 			       ], 
 			success:function() {
 				setTimeout(function() {
@@ -1152,6 +1149,11 @@ window.onload = function() {
 		border-color:white;
 		border-width:1px;
 	}
+	/* 노트 정보(id, 이름, 순서, 색, 공유 수)는 스크립트가 읽기만 하므로 화면에는 숨긴다. */
+	.scene .meta {
+		display:none;
+	}
+	
 	#pusher {
 		display:none;
 		visibility:hidden;
@@ -1525,7 +1527,7 @@ window.onload = function() {
 </style>
 </head>
 <body>
-	<% User corUser = (User)session.getAttribute("corUser"); %>
+	{# corUser는 서버에서 넘겨준다 #}
 	
 	<!-- 사용자정보 관리 목록 -->
 	<div class="demo" data-toggle="modal" href="#myModal">
@@ -1640,20 +1642,13 @@ window.onload = function() {
 				</div>
 			</div>
 		</div>
-<%
-	List<Note> notes = (List<Note>)request.getAttribute("notes");
-	List<UserNote> userNotes = (List<UserNote>)request.getAttribute("userNotes");
-	
-	for(UserNote userNote : userNotes) {
-		for(Note note : notes) {
-			if(userNote.getNoteId() == note.getId()) {
-%>
-		<div class="scene" style="--note-color:<%= note.getColor() %>;">
+{%- for userNote in userNotes %}{% for note in notes %}{% if userNote.noteId == note.id %}
+		<div class="scene" style="--note-color:{{ note.color }};">
 			<div class="shadow"></div>
 			
 			<div class="note show-front">
 				<div class="side front">
-					<div class="name"><%= note.getName() %></div>
+					<div class="name">{{ note.name }}</div>
 					<div class="line"></div>
 				</div>
 				
@@ -1701,27 +1696,23 @@ window.onload = function() {
 			
 			<div class="meta">
 				<div class="id">
-					<%= note.getId() %>
+					{{ note.id }}
 				</div>
 				<div class="name">
-					<%= note.getName() %>
+					{{ note.name }}
 				</div>
 				<div class="idx">
-					<%= userNote.getNoteIdx() %>
+					{{ userNote.noteIdx }}
 				</div>
 				<div class="color">
-					<%= note.getColor() %>
+					{{ note.color }}
 				</div>
 				<div class="sharedCnt">
-					<%= note.getShareCnt() %>
+					{{ note.shareCnt }}
 				</div>
 			</div>
 		</div>
-<%
-			}
-		}
-	}
-%>
+{%- endif %}{% endfor %}{% endfor %}
 		
 		<div id="pusher" class="scene">
 			<div class="shadow"></div>
@@ -1786,10 +1777,10 @@ window.onload = function() {
 					<h4 class="modal-title">계정</h4>
 				</div>
 				<div class="modal-body">
-					<button>아이디<span>${corUser.userId}</span></button>
-					<button data-toggle="modal" href="#nameModal" class="movetoModal">이름<span class="changeName">${corUser.userName}</span></button>
+					<button>아이디<span>{{ corUser.userId }}</span></button>
+					<button data-toggle="modal" href="#nameModal" class="movetoModal">이름<span class="changeName">{{ corUser.userName }}</span></button>
 					<button data-toggle="modal" href="#pwModal" class="movetoModal">비밀번호<span>변경하려면 클릭</span></button>
-					<button data-toggle="modal" href="#emailModal" class="movetoModal">이메일<span class="changeEmail">${corUser.userEmail}</span></button>
+					<button data-toggle="modal" href="#emailModal" class="movetoModal">이메일<span class="changeEmail">{{ corUser.userEmail }}</span></button>
 					
 				</div>
 				<div class="modal-footer">

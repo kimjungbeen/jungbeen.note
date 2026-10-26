@@ -1,5 +1,3 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="jungbeen.note.user.domain.User" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -107,7 +105,7 @@ $(function(){
 				},
 				success:function(user){
 					if(user != ""){
-						var button = $("<form><button type='submit' formaction='http://localhost/note/intoId/' name='userId' value='"+user.userId+"'>"+user.userId+"</button></form>");
+						var button = $("<form><button type='submit' formaction='/note/intoId/' name='userId' value='"+user.userId+"'>"+user.userId+"</button></form>");
 						$("#seleteId").append(button);
 						$("#corName").css('opacity','0');
 						$("#email").css('opacity','0');
@@ -137,11 +135,11 @@ $(function(){
 			$("#errorMsg").css('opacity','0');
 			$("#back").css('opacity','0');
 			$("#next").css('opacity','0');
-			setTimeout(function() {window.location.href="http://localhost/note/logout";}, 700);
+			setTimeout(function() {window.location.href="/note/logout";}, 700);
 		}else{
 			$("#seleteId").css('opacity','0');
 			$("#back").css('opacity','0');
-			setTimeout(function() {window.location.href="http://localhost/note/logout";}, 700);
+			setTimeout(function() {window.location.href="/note/logout";}, 700);
 		}
 	});
 })

@@ -105,9 +105,9 @@ function ajax(option) {
 	if(param != undefined) {
 		for(var i = 0; i < param.length; i++)
 			if(i != param.length - 1)
-				params += param[i].name + "=" + param[i].value + "&";
+				params += param[i].name + "=" + encodeURIComponent(param[i].value) + "&";
 			else
-				params += param[i].name + "=" + param[i].value;
+				params += param[i].name + "=" + encodeURIComponent(param[i].value);
 
 		xhr.send(params);
 	} else if (data != undefined) {
